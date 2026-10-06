@@ -34,3 +34,12 @@
   p-skill-candidate: 0.2
   receipt-refs: 2026-10-06T13:59:07.917526Z
   note: Verify fork ancestry and inspect the small source difference before syncing. Origin main synchronization does not introduce an unmerged feature needed by a pending repair. No spore warranted.
+
+- ts: 2026-10-06T20:52:14.301096Z
+  session: foresight-isolated-services64-planning
+  task: Preserve full Services64 outcome while proposing report-only three-point slice
+  p-efficiency: 0.88
+  p-friction: 0.35
+  p-skill-candidate: 0.15
+  receipt-refs: 86b5fab9-f9e6-4be9-99b4-6114b92d508e, 31f92074-f30e-46da-9857-c4dc9521e25a
+  note: One historical successful host run does not establish root cause or two-run repeatability. Preserve primary failure even report handling fails; allowlist evidence fields. Incoming readback is planning visibility, not admission. No spore or global reflection publication.
