@@ -99,3 +99,12 @@
   spore: none
   receipt-refs: receipts.edn#9e465b79-6240-4cc5-959c-c1ecb82ba8f5
   note: Append-only reference correction: the preceding reflection supplied a machine-local companion artifact path. Use this repository-tracked receipt path and canonical event UUID to recover the evidence in a fresh checkout. The original entry remains unchanged as history. Services source7ecfbd78 and all three reviewed Caddy decision files remain exact; no gate, canonical board write, provider or deployment operation was repeated. Publication was held at51e before any effect until this reference correction. No spore.
+- ts: 2026-10-15T05:53:38.799655149Z
+  session: 01a12257-fc69-7720-888c-dd2595ff7dc7
+  task: Publish the real historical Website-binding test repair under the existing Services hostname decision
+  p-efficiency: 0.72
+  p-friction: 0.66
+  p-skill-candidate: 0
+  spore: none
+  receipt-refs: receipts.edn#893f2841-fba5-4143-8084-b0d834cfbcd8
+  note: Preserve historical approval separately from current input permission; causal registered14/1 RED to14/0 GREEN and independent review. Keep actual approval/controller bytes and real Caddy comment drift guards unchanged. Native publication/hosting and CMS migration/fence/recovery/staging remain separate obligations. No tests repeated or spore promoted.
