@@ -81,3 +81,39 @@
   spore: none
   receipt-refs: 6bd8adbe98817b6aa402860418832e10570b8dda202338d1e56fec82761eeb72
   note: Guide records the actual approved Website delivery, distinct C/S/G ownership, application-owned qualification and attestation, effective hosted translation and review evidence, public browser proof, preservation and rollback. Prepared contract permalink is attributed as preparation. Five unfinished code paths and old controller pin remain intact. Only documentation and provenance change; the new CMS deployment remains pending. No new spore.
+- ts: 2026-10-15T05:27:39.556216506Z
+  session: 01a12257-fc69-7720-888c-dd2595ff7dc7
+  task: Implement existing Services hostname/certificate prerequisite
+  p-efficiency: 0.69
+  p-friction: 0.41
+  p-skill-candidate: 0
+  spore: none
+  receipt-refs: /home/err/.local/share/openhax-codex/20261010/review-state/Services-hostname-certificate-decision-20261015-v1/canonical-Services-decision-receipt-event.edn
+  note: Actual 3-path Caddy decision source committed7ecfbd78 overa303; exact runtime/assignment bytes and parsed Compose unchanged; three existing static checks pass; independent local review finds no issue. Existing ready2 canonically admitted via ready->todo->in_progress, original body/config/history preserved. Keep direct-transition refusal, initial ledger-path guard and rendered-comment-count guard as real preparation failures; canonical comments can coalesce without losing distinct writes. Personal-fork pinned integration branch isolates feature from PR1; do not copy org/App secrets to forks. Native review/adoption and full CMS migration/durability/qualification/rollout remain. No spore or production effect.
+- ts: 2026-10-15T05:31:19.569257787Z
+  session: 01a12257-fc69-7720-888c-dd2595ff7dc7
+  task: Correct the tracked receipt reference for the Services hostname decision
+  p-efficiency: 0.71
+  p-friction: 0.35
+  p-skill-candidate: 0
+  spore: none
+  receipt-refs: receipts.edn#9e465b79-6240-4cc5-959c-c1ecb82ba8f5
+  note: Append-only reference correction: the preceding reflection supplied a machine-local companion artifact path. Use this repository-tracked receipt path and canonical event UUID to recover the evidence in a fresh checkout. The original entry remains unchanged as history. Services source7ecfbd78 and all three reviewed Caddy decision files remain exact; no gate, canonical board write, provider or deployment operation was repeated. Publication was held at51e before any effect until this reference correction. No spore.
+- ts: 2026-10-15T05:53:38.799655149Z
+  session: 01a12257-fc69-7720-888c-dd2595ff7dc7
+  task: Publish the real historical Website-binding test repair under the existing Services hostname decision
+  p-efficiency: 0.72
+  p-friction: 0.66
+  p-skill-candidate: 0
+  spore: none
+  receipt-refs: receipts.edn#893f2841-fba5-4143-8084-b0d834cfbcd8
+  note: Preserve historical approval separately from current input permission; causal registered14/1 RED to14/0 GREEN and independent review. Keep actual approval/controller bytes and real Caddy comment drift guards unchanged. Native publication/hosting and CMS migration/fence/recovery/staging remain separate obligations. No tests repeated or spore promoted.
+- ts: 2026-10-15T06:07:32.385239140Z
+  session: /home/err/.local/share/openhax-codex/20261010/services-caddy-hostname-scale-decision-v1
+  task: Qualify three native Caddy documentation findings without changing runtime or exact Website admission
+  p-efficiency: 0.82
+  p-friction: 0.58
+  p-skill-candidate: 0
+  spore: none
+  receipt-refs: receipts.edn#f04303df-62c8-4926-b102-e9d3ef3c4599
+  note: Trace each native finding to the real source and version-bound upstream behavior before spending another public head. Preserve issuer fallback semantics and managed route recovery within the ingress decision. Four existing checks pass; unchanged historical Website approval still cannot authorize altered inputs. Publication, author-only threads, publisher capability and full CMS rollout remain open. No spore.

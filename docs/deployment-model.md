@@ -221,10 +221,12 @@ step is idempotent and never prints a credential. Beyond that:
 
 ## 6. Open questions
 
-- **Caddy hostname growth.** `caddy/compose.yaml`'s header records that three
-  hostnames on HTTP-01 was the reason to reject a wildcard and keep DNS-provider
-  credentials off the host. Every service plus a staging slot each passes that
-  count. Re-decide once, in that header, rather than one hostname at a time.
+- **Caddy hostname growth.** The [hostname/certificate decision](caddy-hostname-certificate-decision.md)
+  records an 18-name envelope and local review ceilings of 20 managed names
+  and 20 planned fresh/non-ARI issuances per rolling seven days across enabled
+  issuers combined. The Compose header summarizes that decision. Revisit before
+  exceeding either ceiling; verify each issuer's budget, fallback reserve and
+  state recovery before adding names. Source inventory does not activate routes.
 - **Who owns the content root's disk budget**, and what happens when a
   publication run fills it.
 - **Website production qualification.** The isolated staging slot now exists;
