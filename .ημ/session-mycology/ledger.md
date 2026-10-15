@@ -81,3 +81,12 @@
   spore: none
   receipt-refs: 6bd8adbe98817b6aa402860418832e10570b8dda202338d1e56fec82761eeb72
   note: Guide records the actual approved Website delivery, distinct C/S/G ownership, application-owned qualification and attestation, effective hosted translation and review evidence, public browser proof, preservation and rollback. Prepared contract permalink is attributed as preparation. Five unfinished code paths and old controller pin remain intact. Only documentation and provenance change; the new CMS deployment remains pending. No new spore.
+- ts: 2026-10-15T05:27:39.556216506Z
+  session: 01a12257-fc69-7720-888c-dd2595ff7dc7
+  task: Implement existing Services hostname/certificate prerequisite
+  p-efficiency: 0.69
+  p-friction: 0.41
+  p-skill-candidate: 0
+  spore: none
+  receipt-refs: /home/err/.local/share/openhax-codex/20261010/review-state/Services-hostname-certificate-decision-20261015-v1/canonical-Services-decision-receipt-event.edn
+  note: Actual 3-path Caddy decision source committed7ecfbd78 overa303; exact runtime/assignment bytes and parsed Compose unchanged; three existing static checks pass; independent local review finds no issue. Existing ready2 canonically admitted via ready->todo->in_progress, original body/config/history preserved. Keep direct-transition refusal, initial ledger-path guard and rendered-comment-count guard as real preparation failures; canonical comments can coalesce without losing distinct writes. Personal-fork pinned integration branch isolates feature from PR1; do not copy org/App secrets to forks. Native review/adoption and full CMS migration/durability/qualification/rollout remain. No spore or production effect.
