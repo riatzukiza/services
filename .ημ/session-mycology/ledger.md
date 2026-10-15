@@ -90,3 +90,12 @@
   spore: none
   receipt-refs: /home/err/.local/share/openhax-codex/20261010/review-state/Services-hostname-certificate-decision-20261015-v1/canonical-Services-decision-receipt-event.edn
   note: Actual 3-path Caddy decision source committed7ecfbd78 overa303; exact runtime/assignment bytes and parsed Compose unchanged; three existing static checks pass; independent local review finds no issue. Existing ready2 canonically admitted via ready->todo->in_progress, original body/config/history preserved. Keep direct-transition refusal, initial ledger-path guard and rendered-comment-count guard as real preparation failures; canonical comments can coalesce without losing distinct writes. Personal-fork pinned integration branch isolates feature from PR1; do not copy org/App secrets to forks. Native review/adoption and full CMS migration/durability/qualification/rollout remain. No spore or production effect.
+- ts: 2026-10-15T05:31:19.569257787Z
+  session: 01a12257-fc69-7720-888c-dd2595ff7dc7
+  task: Correct the tracked receipt reference for the Services hostname decision
+  p-efficiency: 0.71
+  p-friction: 0.35
+  p-skill-candidate: 0
+  spore: none
+  receipt-refs: receipts.edn#9e465b79-6240-4cc5-959c-c1ecb82ba8f5
+  note: Append-only reference correction: the preceding reflection supplied a machine-local companion artifact path. Use this repository-tracked receipt path and canonical event UUID to recover the evidence in a fresh checkout. The original entry remains unchanged as history. Services source7ecfbd78 and all three reviewed Caddy decision files remain exact; no gate, canonical board write, provider or deployment operation was repeated. Publication was held at51e before any effect until this reference correction. No spore.
