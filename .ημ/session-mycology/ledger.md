@@ -108,3 +108,12 @@
   spore: none
   receipt-refs: receipts.edn#893f2841-fba5-4143-8084-b0d834cfbcd8
   note: Preserve historical approval separately from current input permission; causal registered14/1 RED to14/0 GREEN and independent review. Keep actual approval/controller bytes and real Caddy comment drift guards unchanged. Native publication/hosting and CMS migration/fence/recovery/staging remain separate obligations. No tests repeated or spore promoted.
+- ts: 2026-10-15T06:07:32.385239140Z
+  session: /home/err/.local/share/openhax-codex/20261010/services-caddy-hostname-scale-decision-v1
+  task: Qualify three native Caddy documentation findings without changing runtime or exact Website admission
+  p-efficiency: 0.82
+  p-friction: 0.58
+  p-skill-candidate: 0
+  spore: none
+  receipt-refs: receipts.edn#f04303df-62c8-4926-b102-e9d3ef3c4599
+  note: Trace each native finding to the real source and version-bound upstream behavior before spending another public head. Preserve issuer fallback semantics and managed route recovery within the ingress decision. Four existing checks pass; unchanged historical Website approval still cannot authorize altered inputs. Publication, author-only threads, publisher capability and full CMS rollout remain open. No spore.
