@@ -7,10 +7,12 @@
 # establish route adoption or live deployment. These challenges need no
 # Cloudflare API credentials or DNS-provider module on the ingress host.
 # Revisit before exceeding 20 managed names or planning more than 20 fresh /
-# non-ARI issuances in rolling 7 days. These are local review ceilings; Let's
-# Encrypt's registered-domain budget is shared with every other LE client
-# using promethean.rest. Preserve ACME state; never migrate by reissuing all
-# names from empty storage. Inventory, limits, alternatives and recovery:
+# non-ARI issuances in rolling 7 days, across enabled issuers combined. With
+# nonempty ACME email the defaults are Let's Encrypt then ZeroSSL; reserve
+# primary/fallback capacity per batch and check each issuer's separate budget.
+# These are local review ceilings; the LE domain budget also covers other LE
+# clients using promethean.rest. Preserve ACME and managed-route state; never
+# migrate by reissuing all names. Inventory, limits, alternatives and recovery:
 # docs/caddy-hostname-certificate-decision.md.
 #
 # Exactly one ingress owner, per #27.
@@ -39,11 +41,11 @@ services:
       DEV_BASIC_AUTH_HASH: ${DEV_BASIC_AUTH_HASH:?DEV_BASIC_AUTH_HASH must be set}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      # Retain complete /data and /config: certificate keys, ACME accounts and
-      # renewal metadata. Back up securely and restore state before serving
-      # after a move; ordinary deploys/rollback must not erase these paths.
-      # Losing state can trigger issuance against shared registered-domain
-      # and exact-identifier-set limits; see the decision linked above.
+      # Preserve the host's data, config and managed directories together:
+      # certificate keys/accounts/renewal state plus imported route fragments,
+      # including Website staging. Securely back up, recover and validate the
+      # complete config/import set before serving after a move. Ordinary deploys
+      # and rollback must retain these paths; see the decision linked above.
       - ${CADDY_STATE_PATH}/data:/data
       - ${CADDY_STATE_PATH}/config:/config
       - ${CADDY_STATE_PATH}/managed:/etc/caddy/managed:ro
