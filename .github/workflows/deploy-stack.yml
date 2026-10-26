@@ -1,66 +1,26 @@
 name: Deploy Stack
 
-# Brings the production stack up in dependency order (proxx ──> knoxx ──>
-# caddy ──> website) when a merged pull request asked for it.
-#
-# OpenPlanner's HTTP service is deliberately absent. Knoxx runs the OpenPlanner
-# data plane in-process through @open-hax/openplanner-sdk
-# (KNOXX_OPENPLANNER_CLIENT_MODE=mongo) straight against Atlas, so chat,
-# sessions and vector search need no OpenPlanner service. Graph, translation
-# and document-stats operations still delegate to REST and degrade until one
-# is deployed.
-#
-# The `deploy` label marks intent; the merge performs it.
-#
-# This used to trigger on pushes to main, ask which pull request produced the
-# pushed commit, and re-read that PR's labels when the job eventually ran.
-# Two reviewers' findings retired that design:
-#
-# * The label check read the PR's *current* labels, so a label removed while
-#   the run queued behind another deployment suppressed an intended deploy,
-#   and a label added after the merge authorized one nobody requested. The
-#   pull_request_target closed payload freezes the label set at merge time,
-#   which is the only state that should ever authorize a deployment.
-#
-# * The concurrency group wrapped the whole workflow, and GitHub keeps only
-#   one pending run per group — replacing it even with
-#   cancel-in-progress: false. An unrelated unlabeled push could therefore
-#   evict a queued labeled run and then no-op, losing the requested
-#   deployment. The group now wraps only the deploy job, which unlabeled
-#   merges skip entirely, so they never enter the queue. When two deploys do
-#   queue, the newer replaces the older and deploys main, which already
-#   contains the older run's merge, so no requested deployment is lost.
-#
-# pull_request_target rather than pull_request so a merged fork PR deploys in
-# the base repository's context, with the secrets deployment needs. This is
-# the trigger's documented-safe use: the workflow never checks out or
-# executes the pull request's code. authorize reads only the event payload,
-# and what is built and deployed is main, always — the same thing a reviewer
-# approved and merged, which by then includes a fork's contribution as main's
-# own.
-#
-# A direct push to main produces no event here and still never deploys.
-#
-# The deploy chain lives in deploy-stack-chain.yml behind one workflow_call.
-# Its single production-host concurrency slot covers host provisioning and
-# proxx → knoxx → caddy → website end to end, excluding independent host
-# mutation for the same interval. Per-job groups would let a newer run preempt
-# an older run mid-chain.
+# Manual production promotion. Stack scope requires an immutable Knoxx candidate
+# and completed qualification before any host mutation. Website scope remains
+# isolated behind its exact-candidate selector, staging proof and qualification.
+# One production-host lock covers either complete scope.
 
 on:
-  pull_request_target:
-    types: [closed]
-    branches: [main]
   workflow_dispatch:
     inputs:
+      scope:
+        description: Stack deployment or isolated website staging and promotion
+        required: false
+        default: stack
+        type: choice
+        options: [stack, website, proxx]
       proxx_ref:
         description: open-hax/proxx ref to deploy; production defaults to the pinned SHA below
         required: false
         type: string
       knoxx_ref:
-        description: open-hax/knoxx ref to deploy
+        description: Immutable merged Knoxx commit required for stack scope
         required: false
-        default: main
         type: string
       openplanner_ref:
         description: Immutable open-hax/openplanner ref used to compile Knoxx devtools
@@ -71,6 +31,10 @@ on:
         required: false
         default: main
         type: string
+      website_image:
+        description: Exact previously staged image admitted by a reviewed candidate decision; website scope only
+        required: false
+        type: string
       include_ingress:
         description: Deploy Caddy (owns host 80/443). No DNS is changed either way.
         required: false
@@ -78,9 +42,9 @@ on:
         type: boolean
       include_website:
         description: >-
-          Build and deploy open-hax/website. No DNS is changed either way.
+          Unsupported with stack scope; use scope=website for isolated staging.
         required: false
-        default: true
+        default: false
         type: boolean
 
 # packages: write is required here, not just in build-images.yml: a reusable
@@ -97,45 +61,56 @@ jobs:
     outputs:
       should_deploy: ${{ steps.decide.outputs.should_deploy }}
     steps:
-      # Authorization comes from the event payload, not an API lookup: the
-      # payload's label set is frozen when the merge happens, so the decision
-      # cannot drift while the run queues behind another deployment.
-      - name: Decide whether this merge asked for a deployment
+      # Scope and immutable source are admitted before the locked deploy job.
+      - name: Admit the manual scope and immutable stack candidate
         id: decide
         env:
+          PROXX_SHA: ${{ inputs.proxx_ref }}
+          KNOXX_SHA: ${{ inputs.knoxx_ref }}
           EVENT_NAME: ${{ github.event_name }}
-          MERGED: ${{ github.event.pull_request.merged }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-          LABELS: ${{ toJSON(github.event.pull_request.labels) }}
+          DEPLOY_SCOPE: ${{ inputs.scope || 'stack' }}
+          INCLUDE_WEBSITE: ${{ inputs.include_website }}
+          WEBSITE_IMAGE: ${{ inputs.website_image }}
         run: |
           set -euo pipefail
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            case "$DEPLOY_SCOPE" in
+              stack|website|proxx) ;;
+              *) echo "unknown deployment scope: $DEPLOY_SCOPE" >&2; exit 2 ;;
+            esac
+            if [ -n "$WEBSITE_IMAGE" ] && [ "$DEPLOY_SCOPE" != website ]; then
+              echo '::error::An existing Website image requires isolated website scope.' >&2
+              exit 2
+            fi
+            if [ "$DEPLOY_SCOPE" = stack ] && [ "$INCLUDE_WEBSITE" = true ]; then
+              echo '::error::Stack deployment cannot include the website while its production qualification is unsupported. Use scope=website to stage a candidate; production remains gated.' >&2
+              exit 2
+            fi
+            if [ "$DEPLOY_SCOPE" = stack ] && ! [[ "${KNOXX_SHA:-}" =~ ^[0-9a-f]{40}$ ]]; then
+              echo '::error::Stack deployment requires an immutable Knoxx candidate.' >&2
+              exit 2
+            fi
+            if [ "$DEPLOY_SCOPE" = proxx ]; then
+              if [ "$INCLUDE_WEBSITE" = true ]; then
+                echo '::error::Proxx scope cannot include the website.' >&2
+                exit 2
+              fi
+              if [ -n "$PROXX_SHA" ] && ! [[ "$PROXX_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+                echo '::error::Proxx scope requires an immutable source SHA.' >&2
+                exit 2
+              fi
+            fi
             echo "should_deploy=true" >> "$GITHUB_OUTPUT"
             echo "Manual dispatch; deploying the requested refs."
             exit 0
           fi
+          echo '::error::Production deployment requires manual dispatch.' >&2
+          exit 2
 
-          if [ "$MERGED" != "true" ]; then
-            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
-            echo "PR #${PR_NUMBER} closed without merging; nothing to deploy."
-            exit 0
-          fi
-
-          if printf '%s' "$LABELS" | jq -e 'any(.[]?.name; . == "deploy")' >/dev/null; then
-            echo "should_deploy=true" >> "$GITHUB_OUTPUT"
-            echo "Deploying ${MERGE_SHA} — PR #${PR_NUMBER} carried the deploy label when it merged."
-          else
-            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
-            echo "Not deploying ${MERGE_SHA} — PR #${PR_NUMBER} did not carry the deploy label when it merged."
-          fi
-
-  # One job for the whole chain: the concurrency group then admits only runs
-  # that actually deploy. A queued deploy is only ever replaced by a newer
-  # deploy, which builds main — a superset of the run it replaced.
+  # Keep the production host lock throughout qualification and deployment.
   deploy:
-    name: Deploy proxx, knoxx, caddy, website
+    name: Deploy the selected scope
     needs: authorize
     if: needs.authorize.outputs.should_deploy == 'true'
     concurrency:
@@ -147,21 +122,19 @@ jobs:
       cancel-in-progress: false
     uses: ./.github/workflows/deploy-stack-chain.yml
     with:
+      scope: ${{ github.event_name == 'workflow_dispatch' && inputs.scope || 'stack' }}
       # Pin the release source at the production entry point. A manual
-      # dispatch may deliberately override it; merge-authorized deploys cannot
-      # drift with the moving main branch while queued.
-      proxx_ref: ${{ inputs.proxx_ref || '88471efd7f8cd27f64fc733a1c31369f00a6d432' }}
-      knoxx_ref: ${{ github.event_name == 'workflow_dispatch' && inputs.knoxx_ref || 'main' }}
+      # dispatch may deliberately override this reviewed immutable default.
+      proxx_ref: ${{ inputs.proxx_ref || '3ed25eec53a5bed6dc224f108323ea5d20420a22' }}
+      knoxx_ref: ${{ inputs.knoxx_ref }}
       # Keep the production default in one place. Nested reusable workflows
       # require this input instead of carrying independent, drift-prone pins.
       openplanner_ref: ${{ inputs.openplanner_ref || '07085d6557b75834ce6f50e6c54b8ca47e1c7c08' }}
       website_ref: ${{ github.event_name == 'workflow_dispatch' && inputs.website_ref || 'main' }}
-      # A merge deploy always brings ingress with it, as the labelled-PR path
-      # used to; only a manual dispatch can leave Caddy alone.
+      website_image: ${{ github.event_name == 'workflow_dispatch' && inputs.website_image || '' }}
+      # The manual caller can leave existing ingress unchanged.
       include_ingress: ${{ github.event_name != 'workflow_dispatch' || inputs.include_ingress }}
-      # Now `|| true` like include_ingress. open-hax/website declares
-      # build:site (open-hax/website#2), which is the prerequisite this input
-      # was waiting on, so a merge deploy brings the site with it. Only a
-      # manual dispatch can leave it alone.
-      include_website: ${{ github.event_name != 'workflow_dispatch' || inputs.include_website }}
+      # Stack opt-in is rejected in authorize;
+      # explicit website scope enters its staging/qualification body.
+      include_website: ${{ github.event_name == 'workflow_dispatch' && inputs.include_website }}
     secrets: inherit
