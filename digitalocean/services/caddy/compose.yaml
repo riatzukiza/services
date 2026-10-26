@@ -35,6 +35,10 @@ services:
       # Let's Encrypt rate limits are per-hostname-per-week.
       - ${CADDY_STATE_PATH}/data:/data
       - ${CADDY_STATE_PATH}/config:/config
+      - ${CADDY_STATE_PATH}/managed:/etc/caddy/managed:ro
+      # Axxium's public service DID document (public keys only). Lives in durable
+      # state, not the deploy dir, so a services deploy cannot drop it.
+      - ${CADDY_STATE_PATH}/axxium-identity/did.json:/etc/caddy/axxium-identity/did.json:ro
     healthcheck:
       test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
       interval: 30s

@@ -1,0 +1,35 @@
+# Colab browser MCP gateway. Mirrors the live project at
+# /srv/open-hax/services/colab-mcp (captured read-only 2026-10-26) except that
+# the image is injected instead of built on the host.
+name: colab-mcp
+
+services:
+  gateway:
+    # Live: knoxx-colab-mcp:candidate, built from ./app (open-hax/knoxx
+    # integrations/colab-mcp). DECISION PENDING: publish to GHCR and pin a digest.
+    image: ${COLAB_MCP_IMAGE:?COLAB_MCP_IMAGE must be set}
+    user: "1000:1000"
+    restart: unless-stopped
+    # Host networking reaches the reverse SSH relay on loopback (18023/18025);
+    # the HTTP bind is the dedicated Caddy bridge address only, never 0.0.0.0.
+    network_mode: host
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    cpus: '0.5'
+    pids_limit: 128
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    environment:
+      COLAB_BRIDGE_TOKEN_FILE: /run/colab/bridge-token
+      COLAB_BRIDGE_URL: http://127.0.0.1:18023/mcp
+      COLAB_COMPUTE_URL: http://127.0.0.1:18025/mcp
+      COLAB_OAUTH_BASE_URL: https://${COLAB_PUBLIC_HOST:?COLAB_PUBLIC_HOST must be set}/colab
+      COLAB_OAUTH_STATE_DIR: /var/lib/colab-oauth
+      COLAB_AXXIUM_CLIENT_FILE: /run/colab/axxium-client.json
+      FASTMCP_CHECK_FOR_UPDATES: "off"
+    volumes:
+      - ${COLAB_MCP_STATE_DIR:?Private state directory required}:/run/colab:ro
+      - ${COLAB_MCP_STATE_DIR:?Private state directory required}/oauth:/var/lib/colab-oauth:rw
+    command: ["knoxx-colab-mcp", "gateway", "--host", "172.31.255.1", "--port", "18024"]
