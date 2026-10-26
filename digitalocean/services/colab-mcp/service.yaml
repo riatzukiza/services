@@ -1,0 +1,15 @@
+# Colab browser MCP gateway (open-hax/knoxx integrations/colab-mcp).
+# Placement, relay topology and activation/rollback: README.md in the host
+# project dir and docs/environments/knoxx-host-alignment.md §Colab.
+version: 1
+name: colab-mcp
+kind: container
+sourceRepo: open-hax/knoxx
+sourcePath: integrations/colab-mcp
+image:
+  name: ghcr.io/open-hax/knoxx-colab-mcp   # DECISION PENDING; live is knoxx-colab-mcp:candidate (host build)
+bind: 172.31.255.1:18024   # Caddy bridge only; allow only source 172.31.255.2
+upstreams: ["127.0.0.1:18023 (reverse SSH relay to Stealth bridge)", "127.0.0.1:18025 (compute)"]
+ingress: knoxx.promethean.rest /colab/* and colab OAuth discovery (caddy/Caddyfile)
+state: ["${OPEN_HAX_STATE_PATH}  # bridge-token, axxium-client.json: private 0600, never in repo"]
+verify: verify.sh

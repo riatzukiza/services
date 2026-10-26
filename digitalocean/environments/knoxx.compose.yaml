@@ -40,7 +40,16 @@ services:
       PORT: '8000'
       MONGODB_URI: mongodb://database:27017/?replicaSet=rs0
       MONGODB_DB: knoxx
-      KNOXX_OPENPLANNER_CLIENT_MODE: mongo
+      KNOXX_OPENPLANNER_CLIENT_MODE: ${KNOXX_OPENPLANNER_CLIENT_MODE:-mongo}
+      # Graph memory (graph_query/graph-memory!) delegates to the REST client even in
+      # mongo mode. Staging requires it (integration gate memory-roundtrip); the
+      # key is per-environment and never shared with another slot or production.
+      OPENPLANNER_BASE_URL: ${OPENPLANNER_BASE_URL:-}
+      OPENPLANNER_API_KEY: ${OPENPLANNER_API_KEY:-}
+      # Per-environment Proxx identity and budget; never the production token.
+      PROXX_BASE_URL: ${PROXX_BASE_URL:-}
+      PROXX_AUTH_TOKEN: ${PROXX_AUTH_TOKEN:-}
+      PROXX_DEFAULT_MODEL: ${PROXX_DEFAULT_MODEL:-}
       KNOXX_AXXIUM_ORIGIN: ${KNOXX_AXXIUM_ORIGIN:?Local identity authority required}
       KNOXX_PUBLIC_BASE_URL: ${KNOXX_PUBLIC_BASE_URL}
       KNOXX_BASE_URL: ${KNOXX_PUBLIC_BASE_URL}

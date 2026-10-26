@@ -1,0 +1,29 @@
+# open-hax/axxium — actor authority (identity API) plus the official AT Protocol PDS.
+# compose.yaml, env.template and verify.sh are byte-for-byte the definitions
+# running on the knoxx droplet at /srv/open-hax/services/axxium (captured
+# read-only 2026-10-26); this descriptor makes the repo their source of truth.
+version: 1
+name: axxium
+kind: container-stack
+sourceRepo: open-hax/axxium
+sourceRef: main
+image:
+  # DECISION PENDING: live runs `axxium-federation:local`, built on the host.
+  # Promotion requires a CI-built, digest-pinned image (deployment-model §5).
+  name: ghcr.io/open-hax/axxium
+  live: axxium-federation:local
+  liveImageId: sha256:e39ed6c2693ddcc0d092d37fc0d0dd5175aa28edc6ece32a48dbc8a34037b367
+companions:
+  - name: pds
+    image: ghcr.io/bluesky-social/pds@sha256:95d6179bc9fb10cc36ccd6dea0407fc6d99f21374bf2a1f9e8f28c0427c7e336
+  - name: axxium-db
+    image: postgres:16-bookworm
+hostnames: [axxium.promethean.rest, "*.axxium.promethean.rest"]
+ingress: digitalocean/services/caddy/Caddyfile (axxium site block, on_demand_tls ask)
+ports: ["127.0.0.1:8787", "127.0.0.1:3000"]
+state:
+  - "${OPEN_HAX_STATE_PATH}/postgres"
+  - "${OPEN_HAX_STATE_PATH}/pds"
+  - "${OPEN_HAX_STATE_PATH}/google-client.json  # private, 0600, never in repo"
+secrets: [AXXIUM_DB_PASSWORD, AXXIUM_JWT_SECRET, AXXIUM_BOOTSTRAP_ADMIN_EMAIL, PDS_JWT_SECRET, PDS_ADMIN_PASSWORD, PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX]
+verify: verify.sh
