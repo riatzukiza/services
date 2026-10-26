@@ -116,19 +116,69 @@ designing anything new.
   the retired branch-based model. Don't revive it; this proposal gates on receipts,
   not branch ancestry.
 
-## Open decisions for Err
+## Environments as actors
 
-1. Staging's Proxx: a staging Proxx, or prod Proxx with a separate key/budget?
-   Prod Proxx means staging traffic hits prod inference.
-2. Data: a separate Mongo DB per phase in the same Atlas cluster, or ephemeral and
-   seeded? And is OpenPlanner REST configured in staging? (`graph_query` fails in
-   prod for lack of it.)
-3. Retire `knoxx-dev` now, or keep it until testing serves?
-4. Whether the 4×250 mutation gate in promotion.md applies to Knoxx promotion now,
-   or later.
-5. The canonical layout (`environments/` vs `services/staging/`) and the
-   `promote/` SHA length.
-6. Whether axxium and colab-mcp get service descriptors before they're staged.
+Every environment is a node/actor in the federated network, not just a slot:
+`knoxx/prod`, `knoxx/staging`, `knoxx/testing` on the knoxx host, and dev nodes
+like `knoxx/dev@stealth` or `proxx/dev@yoga`.
+
+- **Hierarchy.** Users and agents are at the bottom. Users belong to teams or
+  orgs, and teams belong to orgs. A product team (e.g. the Knoxx team in
+  `open-hax`) has its environments as members.
+- **Production holds the team's shared memory.** Staging and dev are discussed
+  in prod's context. What they learn lifts upward through the semi-permeable
+  barrier at each level.
+- **Isolation is by team/org boundary, not by separate networks.** Sibling
+  environments share the host and the federation. What separates them is the
+  identity, budget and memory scope they act under.
+- **Validation is a sibling matrix.** Proxx needs several sibling deployments in
+  different configs across stealth, yoga and knoxx. The same principle applies
+  to every system: one image, many configured siblings, each an actor whose
+  results lift into the team context.
+
+Sources: Drive [Knoxx Group Consciousness: Teams, Orgs & Shared Identity](https://drive.google.com/file/d/1BCXq3IAiosLgdpx5sI5mGvzivOY8xqaY/view)
+("each level is another semi-permeable barrier… the lift happens at every
+layer"); [Knoxx Consciousness Model: Semi-Permeable Memory](https://drive.google.com/file/d/1kXm7fE0uWgB69xxtQaVEWWq-yY5oKRCP/view);
+and the Knoxx `docs/actor-realtime-socket-io-spec.md` actor/org scopes
+(`org:{orgId}` rooms, visibility `public|org|actor|session|admin`, and
+`org_id`/`actor_id` on session indexes). No single canonical "actor hierarchy"
+text was found in the corpus. This section is the first consolidated statement.
+
+## Open design question: multi-home identity (unsettled)
+
+This extends AT: an actor identity (e.g. `grokbot`) can hold credentials on one
+or more Axxiums (prod, staging, dev). The actor owns them regardless of where
+they live, and provenance records which credential was used. Still open:
+
+- **Shared anchor.** One stable DID whose document lists per-Axxium credentials,
+  with each Axxium attesting key→DID?
+- **Revocation.** Per-credential, without rotating the actor.
+- **Authorization to add a credential.** The actor's own key, the org/team, or an
+  Axxium quorum?
+- **Cross-boundary leakage.** A lift must filter by credential context, so a
+  staging-credential memory doesn't surface as a prod fact.
+
+## Resolved decisions (Err, 2026-10-26)
+
+1. Staging gets its **own Proxx identity and budget**.
+2. A **per-environment DB namespace with seeded data**.
+3. **OpenPlanner REST is required in staging.** It's missing in prod, which is why
+   `graph_query` fails there.
+4. `knoxx-dev` becomes a **proper dev node on stealth/yoga**.
+5. The canonical layout is **`/srv/open-hax/environments/<env>/<svc>`**; website
+   migrates to it later.
+6. **axxium and colab-mcp need real service definitions** before they're staged.
+
+Still open: the 4×250 mutation gate for Knoxx, and the `promote/` SHA length.
+
+## Follow-ups (draft)
+
+- Proxx: replace the repo-level staging workflow (it targets the removed lane)
+  with a caller of `open-hax/services` `deploy-service-environment.yml`, pinned
+  to a services `main` SHA.
+- Knoxx: repoint `deploy-staging.yml` / `deploy-testing.yml` and repin
+  `environment-promotion.yml` (all four `uses:`/`controller_sha` refs) to
+  services `main`. Deploy logic lives only in `open-hax/services`.
 
 ## Sources
 
