@@ -45,6 +45,7 @@ jobs:
           ENVIRONMENT: ${{ inputs.environment }}
           PR_NUMBER: ${{ inputs.pull_request }}
           SOURCE_REPOSITORY: ${{ inputs.source_repository || github.repository }}
+          CALLER_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           [[ "$CONTROLLER_SHA" =~ ^[0-9a-f]{40}$ ]]
@@ -52,6 +53,10 @@ jobs:
           [[ "$SERVICE" =~ ^(knoxx|axxium)$ ]]
           [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]
           test "$SOURCE_REPOSITORY" = "open-hax/$SERVICE"
+          # Cross-repository testing requires a separate source-authorized identity.
+          if [ "$SOURCE_REPOSITORY" != "$CALLER_REPOSITORY" ]; then
+            test "$ENVIRONMENT" = staging
+          fi
           # Native job identity names this callee; github workflow identity names its caller.
           python3 - <<'PY'
           import json, os, re

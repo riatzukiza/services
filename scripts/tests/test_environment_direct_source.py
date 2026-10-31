@@ -1,5 +1,6 @@
 """Static and executable guards for the Services-only staging entrypoint."""
 import os
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -9,6 +10,26 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 
 class ReusableControllerCandidateTest(unittest.TestCase):
+    def test_cross_repository_override_is_staging_only(self):
+        source = yaml.load((ROOT / '.github/workflows/deploy-service-environment.yml').read_text(), Loader=yaml.BaseLoader)
+        guard = source['jobs']['admit']['steps'][0]['run']
+        sha = 'a' * 40
+        identity = json.dumps({'workflow_sha': sha, 'workflow_repository': 'open-hax/services',
+            'workflow_file_path': '.github/workflows/deploy-service-environment.yml',
+            'workflow_ref': 'open-hax/services/.github/workflows/deploy-service-environment.yml@' + sha})
+        with tempfile.TemporaryDirectory() as temp:
+            def run(caller, environment):
+                env = dict(os.environ, CONTROLLER_SHA=sha, WORKFLOW_CONTEXT=identity,
+                    SOURCE_REPOSITORY='open-hax/knoxx', CALLER_REPOSITORY=caller,
+                    SERVICE='knoxx', ENVIRONMENT=environment, PR_NUMBER='398',
+                    GITHUB_OUTPUT=str(Path(temp) / 'output'))
+                return subprocess.run(['bash', '-euo', 'pipefail', '-c', guard],
+                    env=env, capture_output=True, text=True, check=False).returncode
+            self.assertEqual(0, run('open-hax/services', 'staging'))
+            self.assertNotEqual(0, run('open-hax/services', 'testing'))
+            self.assertEqual(0, run('open-hax/knoxx', 'testing'))
+            self.assertEqual(0, run('open-hax/knoxx', 'staging'))
+
     def test_expected_merge_sha_must_match_admission(self):
         source = yaml.load((ROOT / '.github/workflows/deploy-service-environment.yml').read_text(), Loader=yaml.BaseLoader)
         step = next(x for x in source['jobs']['admit']['steps'] if x.get('id') == 'admission')
