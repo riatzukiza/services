@@ -1,0 +1,46 @@
+name: Stage Knoxx candidate
+
+# Services-owned, explicit staging dispatch. No production scope. The reusable
+# controller admits only a merged main PR whose merge SHA is still main tip.
+on:
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: Merged Knoxx PR number
+        type: string
+        required: true
+      source_sha:
+        description: Exact 40-character merged Knoxx commit SHA
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Admit explicit upstream staging candidate
+        env:
+          REPOSITORY: ${{ github.repository }}
+          REF: ${{ github.ref }}
+          PR_NUMBER: ${{ inputs.pull_request }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          set -euo pipefail
+          test "$REPOSITORY" = open-hax/services
+          test "$REF" = refs/heads/main
+          [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+  stage:
+    needs: validate
+    uses: ./.github/workflows/deploy-service-environment.yml
+    with:
+      controller_sha: ${{ github.sha }}
+      service: knoxx
+      environment: staging
+      pull_request: ${{ inputs.pull_request }}
+      source_repository: open-hax/knoxx
+      expected_source_sha: ${{ inputs.source_sha }}
