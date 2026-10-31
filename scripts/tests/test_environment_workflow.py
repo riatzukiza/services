@@ -139,7 +139,7 @@ class EnvironmentWorkflowTest(unittest.TestCase):
                 self.assertNotEqual(0, result.returncode)
                 self.assertEqual("preserved=value\n", output)
 
-    def run_deployment(self, service, environment, exit_code):
+    def run_deployment(self, service, environment, exit_code, overrides=None):
         step = next(s for s in self.workflow["jobs"]["deploy"]["steps"]
                     if s.get("name") == "Deploy through the restricted environment receiver")
         with tempfile.TemporaryDirectory(prefix="environment ssh ") as directory:
@@ -153,16 +153,25 @@ class EnvironmentWorkflowTest(unittest.TestCase):
             archive = b"synthetic image archive\x00with inert bytes\n"
             (root/"artifact/images.tar").write_bytes(archive)
             calls = root / "ssh-calls.json"
+            env = {"HOME": str(root), "PATH": str(binary)+os.pathsep+os.defpath,
+                   "SERVICE": service, "ENVIRONMENT": environment, "SOURCE_SHA": "c"*40,
+                   "DEPLOY_SSH_KEY": "synthetic private key", "DEPLOY_KNOWN_HOSTS": "synthetic known hosts",
+                   "DEPLOY_TARGET": "synthetic@invalid", "SSH_CALLS": str(calls), "SSH_EXIT": str(exit_code)}
+            env.update(overrides or {})
             result = subprocess.run(["bash", "-euo", "pipefail", "-c", step["run"]],
-                cwd=root, env={"HOME": str(root), "PATH": str(binary)+os.pathsep+os.defpath,
-                    "SERVICE": service, "ENVIRONMENT": environment, "SOURCE_SHA": "c"*40,
-                    "DEPLOY_SSH_KEY": "synthetic private key", "DEPLOY_KNOWN_HOSTS": "synthetic known hosts",
-                    "DEPLOY_TARGET": "synthetic@invalid", "SSH_CALLS": str(calls), "SSH_EXIT": str(exit_code)},
-                capture_output=True, text=True, timeout=10, check=False)
-            record = json.loads(calls.read_text())
+                cwd=root, env=env, capture_output=True, text=True, timeout=10, check=False)
+            record = json.loads(calls.read_text()) if calls.exists() else {}
             record["key_removed"] = not (root/".ssh/environment_key").exists()
             record["archive_sha256"] = hashlib.sha256(archive).hexdigest()
             return result, record
+
+    def test_missing_receiver_inputs_fail_before_ssh(self):
+        for name in ("DEPLOY_SSH_KEY", "DEPLOY_KNOWN_HOSTS", "DEPLOY_TARGET"):
+            with self.subTest(missing=name):
+                result, record = self.run_deployment("knoxx", "staging", 0, {name: ""})
+                self.assertNotEqual(0, result.returncode)
+                self.assertNotIn("args", record, "SSH must not run with missing input")
+                self.assertTrue(record["key_removed"])
 
     def test_actual_ssh_transfer_has_liveness_bounds_and_retains_receiver_input(self):
         for service in ("knoxx", "axxium"):
