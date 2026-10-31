@@ -75,6 +75,7 @@ class EnvironmentWorkflowTest(unittest.TestCase):
             environment = {"HOME": str(root), "PATH": os.defpath,
                 "CONTROLLER_SHA": controller, "SERVICE": "knoxx", "ENVIRONMENT": "testing",
                 "PR_NUMBER": "1", "SOURCE_REPOSITORY": "open-hax/knoxx",
+                "CALLER_REPOSITORY": "open-hax/knoxx",
                 "WORKFLOW_CONTEXT": context if isinstance(context, str) else json.dumps(context),
                 "GITHUB_OUTPUT": str(output)}
             environment.update(overrides)
@@ -102,7 +103,7 @@ class EnvironmentWorkflowTest(unittest.TestCase):
             for environment in ("testing", "staging"):
                 with self.subTest(service=service, environment=environment):
                     result, output = self.run_controller(SERVICE=service,
-                        SOURCE_REPOSITORY="open-hax/"+service, ENVIRONMENT=environment)
+                        SOURCE_REPOSITORY="open-hax/"+service, CALLER_REPOSITORY="open-hax/"+service, ENVIRONMENT=environment)
                     self.assertEqual(0, result.returncode, result.stderr)
                     self.assertEqual("preserved=value\ncontroller_sha="+CONTROLLER_SHA+"\n", output)
 
