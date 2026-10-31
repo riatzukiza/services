@@ -167,7 +167,9 @@ jobs:
           DEPLOY_TARGET: ${{ vars.PROMETHEAN_ENVIRONMENT_SSH_TARGET }}
         run: |
           set -euo pipefail
-          test -n "$DEPLOY_SSH_KEY" && test -n "$DEPLOY_KNOWN_HOSTS" && test -n "$DEPLOY_TARGET"
+          : "${DEPLOY_SSH_KEY:?Missing staging/testing receiver key}"
+          : "${DEPLOY_KNOWN_HOSTS:?Missing staging/testing pinned host key}"
+          : "${DEPLOY_TARGET:?Missing staging/testing receiver target}"
           install -d -m 700 "$HOME/.ssh"
           printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/environment_key"
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
