@@ -15,6 +15,7 @@ contracts/
                             families, providers, pricing, queues, router).
   knoxx/                    Knoxx EDN contract tree (agents, actors, roles,
                             capabilities, models, pipelines, policies, ...).
+  axxium/identity/          Axxium identity seeds (secret-free actor trees).
 ```
 
 ## Wiring
@@ -24,6 +25,26 @@ contracts/
   directory read-only at `/etc/proxx/policies`).
 - **Knoxx** reads `CONTRACTS_DIR` → `contracts/knoxx`
   (an explicit `CONTRACTS_DIR` replaces the source-tree default).
+- **Axxium** reads `AXXIUM_IDENTITY_SEED_FILE` →
+  `contracts/axxium/identity/foresight-tree.edn` (Err's tree: grokbots,
+  per-repo bots, and the yoga/stealth host agents). Axxium applies it
+  idempotently at startup through its policy-checked provision op: missing
+  actors are created, existing ones are never changed or deleted. The file
+  holds actors and policies only; credentials are provisioned at runtime in
+  the Axxium portal. Not wired yet: `digitalocean/services/axxium` is
+  deployed by a qualified fixed transaction (`scripts/axxium_minimal_release.py`
+  + `minimal-production-plan.json`) that preserves a host-owned compose/.env
+  by digest, and open-hax/services#92 is still reshaping that service. Wiring
+  also requires a usable `AXXIUM_GITHUB_IDENTITY_KEY_FILE` and a nonempty
+  `AXXIUM_GITHUB_IDENTITY_LEDGER_FILE`; without both, seed application is skipped.
+  The seed root `err` does not by itself bind to an authenticated account: the
+  portal derives its caller DID from the account actor ID. A verified binding or
+  the authenticated actor ID must be established before this tree can be managed.
+  Wiring needs a read-only bind of `contracts/axxium/identity` plus the variable,
+  admitted as a new overlay, and an Axxium image that contains the loader.
+  Format:
+  open-hax/axxium `docs/github-identity-resource.md#seed-files`
+  (riatzukiza/axxium#21).
 - **OpenPlanner** owns no contracts; it consumes Proxx and Knoxx.
 
 ## Policy notes
