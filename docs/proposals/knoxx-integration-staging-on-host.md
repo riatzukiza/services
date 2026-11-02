@@ -52,10 +52,11 @@ production   knoxx host, compose project knoxx, the SAME image digests staging p
    it's a bug). Run anonymous and authorized probes per deployment-model §5,
    including an MCP OAuth round-trip and a memory write→read round-trip. That
    round-trip fails in prod today; see the conformance report.
-4. **Promote bytes, not branches.** Production takes the *image digests* recorded
-   in the staging `deployment.json` receipt for the exact source SHA. This closes
-   the gap deployment-model rule 3 admits ("proves the source SHA was staged, not
-   the image"). Production never rebuilds.
+4. **Record and promote all Knoxx bytes, not branches.** First extend the staging
+   `deployment.json` receipt to record the backend, frontend, and devtools image
+   digests for the exact source SHA. Production must use those three recorded
+   digests and never rebuild. This closes the gap deployment-model rule 3 admits
+   ("proves the source SHA was staged, not the image").
 5. **The repo flow is unchanged:** develop on `riatzukiza/services`, then open an
    org PR from `promote/<sha>`, then the org merge, then staging, then promotion
    (foresight `docs/notes/promethean-review-and-promotion.md`).
