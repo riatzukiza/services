@@ -31,9 +31,13 @@ contracts/
   idempotently at startup through its policy-checked provision op: missing
   actors are created, existing ones are never changed or deleted. The file
   holds actors and policies only; credentials are provisioned at runtime in
-  the Axxium portal. Axxium HTTP deployment is still deferred, so no compose
-  service mounts it yet; when one is added it should mount
-  `contracts/axxium/identity` read-only and set the variable. Format:
+  the Axxium portal. Not wired yet: `digitalocean/services/axxium` is
+  deployed by a qualified fixed transaction (`scripts/axxium_minimal_release.py`
+  + `minimal-production-plan.json`) that preserves a host-owned compose/.env
+  by digest, and open-hax/services#92 is still reshaping that service. Wiring
+  needs a read-only bind of `contracts/axxium/identity` plus the variable,
+  admitted as a new overlay, and an Axxium image that contains the loader.
+  Format:
   open-hax/axxium `docs/github-identity-resource.md#seed-files`
   (riatzukiza/axxium#21).
 - **OpenPlanner** owns no contracts; it consumes Proxx and Knoxx.
