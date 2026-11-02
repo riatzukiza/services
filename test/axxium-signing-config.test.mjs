@@ -54,6 +54,10 @@ rejects('signing mount must be read-only', 'signing-read-only', c => c.services.
 rejects('signing mount must be a bind', 'signing-bind', c => c.services.axxium.volumes[0].type = 'volume');
 rejects('missing PEM must not create a directory', 'signing-create-host-path', c => delete c.services.axxium.volumes[0].bind);
 rejects('same signing and transfer source is rejected', 'separate-key-sources', c => c.services.axxium.volumes[0].source = c.services.axxium.volumes[1].source);
+rejects('identity exposed through a directory bind cannot share the signing source', 'separate-key-sources', c => {
+  c.services.axxium.volumes[0].source = '/isolated/staging/identity-private.json';
+  c.services.axxium.volumes[1] = {type: 'bind', source: '/isolated/staging', target: '/run/axxium'};
+});
 rejects('relative rendered source is rejected', 'signing-source', c => c.services.axxium.volumes[0].source = './key.pem');
 rejects('duplicate signing targets are rejected', 'signing-mount', c => c.services.axxium.volumes.push({...c.services.axxium.volumes[0]}));
 rejects('unrendered short mount syntax is rejected', 'signing-mount', c => c.services.axxium.volumes = ['a:b:ro']);

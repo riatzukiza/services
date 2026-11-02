@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Opt-in diagnostic for rendered Compose JSON. No host reads, writes or deployment.
-import {isAbsolute, normalize, resolve} from 'node:path';
+import {isAbsolute, normalize, relative, resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -49,9 +49,13 @@ export function inspectSigningConfig(config, expected = {}) {
     require(mount.read_only === true, 'signing-read-only');
     require(object(mount.bind) && mount.bind.create_host_path === false, 'signing-create-host-path');
     require(absolutePath(mount.source), 'signing-source');
-    const transfers = mounts.filter(item => nonempty(identityPath) && item.target === identityPath);
-    require(!transfers.some(item => nonempty(item.source) && nonempty(mount.source)
-      && normalize(item.source) === normalize(mount.source)), 'separate-key-sources');
+    const transfers = mounts.filter(item => item.type === 'bind' && absolutePath(item.target)
+      && absolutePath(item.source) && absolutePath(identityPath));
+    require(!transfers.some(item => {
+      const suffix = relative(item.target, identityPath);
+      return suffix !== '..' && !suffix.startsWith('../') && !isAbsolute(suffix)
+        && normalize(resolve(item.source, suffix)) === normalize(mount.source);
+    }), 'separate-key-sources');
   }
   return result(errors);
 }
