@@ -1,0 +1,48 @@
+# Declaration under docs/deployment-model.md section 2. This records the
+# service contract; host-role enrollment and qualified phase promotion still
+# belong to the owning workflows and are not supplied by this descriptor.
+version: 1
+name: colab-mcp
+kind: bridge
+sourceRepo: open-hax/cloud-cuckoo
+sourceRef: main
+
+image:
+  name: ghcr.io/open-hax/cloud-cuckoo
+  build: cloud-cuckoo:Dockerfile
+  toolchain: [python3.13, uv, git]
+  command: uv sync --frozen --no-dev --no-editable
+  output: /app/.venv
+
+serve:
+  internalPort: 18024
+  bindAddress: 172.31.255.1
+  networkMode: host
+
+ingress:
+  hostname: knoxx.promethean.rest
+  caddyHostVar: CADDY_KNOXX_HOST
+  pathPrefix: /colab/
+
+# The fixed Stage flow uses the real gateway/auth/forwarding implementation with
+# dedicated synthetic peers. The old inert probe receives no promotion credit.
+# Production remains unenrolled until ordinary qualification is admitted.
+phases: [staging]
+staging:
+  workflow: deploy-colab-transport-stage.yml
+  compose: compose.transport-stage.yaml
+  project: colab-mcp-transport-staging
+  state: /srv/open-hax/state/colab-transport-stage
+  gateway: http://127.0.0.1:18771
+  syntheticUpstreams: true
+  googleExecutionVerified: false
+
+verify:
+  required: true
+  probes:
+    - deployed-image-and-source-revision
+    - local-and-public-identity-health
+    - protected-resource-discovery
+    - oauth-discovery-scopes-and-pkce
+    - pinned-axxium-issuer-availability
+    - anonymous-mcp-denial
