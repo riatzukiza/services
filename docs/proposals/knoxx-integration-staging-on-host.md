@@ -169,7 +169,9 @@ they live, and provenance records which credential was used. Still open:
    migrates to it later.
 6. **axxium and colab-mcp need real service definitions** before they're staged.
 
-Still open: the 4×250 mutation gate for Knoxx, and the `promote/` SHA length.
+The existing 4×250 mutation gate for production remains in force under
+`promotion.md`; whether to revise it is a separate policy decision. Still open:
+the `promote/` SHA length.
 
 ## Follow-ups (draft)
 
