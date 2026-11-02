@@ -70,3 +70,23 @@
                        :actual actual})))))
 
 (println "all" (count contract-files) "Knoxx EDN resources parse as exactly one form")
+
+;; Axxium identity seeds (AXXIUM_IDENTITY_SEED_FILE): one map, parents
+;; before children, named policies resolvable, and no secret material.
+(doseq [seed-file (->> (file-seq (io/file "contracts/axxium/identity"))
+                       (filter #(.endsWith (.getName %) ".edn")))]
+  (let [path (.getPath seed-file)
+        text (slurp seed-file)
+        seed (edn/read-string text)
+        fail #(throw (ex-info (str "invalid Axxium identity seed " path ": " %) {:path path}))
+        policy? #(or (map? %) (contains? (:policies seed) %))]
+    (when-not (map? seed) (fail "not a map"))
+    (when-not (policy? (get-in seed [:root :policy])) (fail "root policy unresolved"))
+    (when (re-find #"(?i):credential/(secret|pem|sealed|key-file)|BEGIN [A-Z ]*PRIVATE KEY|axb_|ghs_|ghp_|sk-" text)
+      (fail "contains secret material"))
+    (reduce (fn [seen {:keys [id parent policy]}]
+              (when-not (contains? seen parent) (fail (str id " precedes its parent " parent)))
+              (when-not (policy? policy) (fail (str id " policy unresolved")))
+              (conj seen id))
+            #{(get-in seed [:root :id])}
+            (:nodes seed))))

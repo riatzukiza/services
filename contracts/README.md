@@ -15,6 +15,7 @@ contracts/
                             families, providers, pricing, queues, router).
   knoxx/                    Knoxx EDN contract tree (agents, actors, roles,
                             capabilities, models, pipelines, policies, ...).
+  axxium/identity/          Axxium identity seeds (secret-free actor trees).
 ```
 
 ## Wiring
@@ -24,6 +25,17 @@ contracts/
   directory read-only at `/etc/proxx/policies`).
 - **Knoxx** reads `CONTRACTS_DIR` → `contracts/knoxx`
   (an explicit `CONTRACTS_DIR` replaces the source-tree default).
+- **Axxium** reads `AXXIUM_IDENTITY_SEED_FILE` →
+  `contracts/axxium/identity/foresight-tree.edn` (Err's tree: grokbots,
+  per-repo bots, and the yoga/stealth host agents). Axxium applies it
+  idempotently at startup through its policy-checked provision op: missing
+  actors are created, existing ones are never changed or deleted. The file
+  holds actors and policies only; credentials are provisioned at runtime in
+  the Axxium portal. Axxium HTTP deployment is still deferred, so no compose
+  service mounts it yet; when one is added it should mount
+  `contracts/axxium/identity` read-only and set the variable. Format:
+  open-hax/axxium `docs/github-identity-resource.md#seed-files`
+  (riatzukiza/axxium#21).
 - **OpenPlanner** owns no contracts; it consumes Proxx and Knoxx.
 
 ## Policy notes
