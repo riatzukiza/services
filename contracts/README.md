@@ -35,7 +35,12 @@ contracts/
   deployed by a qualified fixed transaction (`scripts/axxium_minimal_release.py`
   + `minimal-production-plan.json`) that preserves a host-owned compose/.env
   by digest, and open-hax/services#92 is still reshaping that service. Wiring
-  needs a read-only bind of `contracts/axxium/identity` plus the variable,
+  also requires a usable `AXXIUM_GITHUB_IDENTITY_KEY_FILE` and a nonempty
+  `AXXIUM_GITHUB_IDENTITY_LEDGER_FILE`; without both, seed application is skipped.
+  The seed root `err` does not by itself bind to an authenticated account: the
+  portal derives its caller DID from the account actor ID. A verified binding or
+  the authenticated actor ID must be established before this tree can be managed.
+  Wiring needs a read-only bind of `contracts/axxium/identity` plus the variable,
   admitted as a new overlay, and an Axxium image that contains the loader.
   Format:
   open-hax/axxium `docs/github-identity-resource.md#seed-files`

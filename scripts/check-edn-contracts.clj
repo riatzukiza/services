@@ -77,14 +77,30 @@
                        (filter #(.endsWith (.getName %) ".edn")))]
   (let [path (.getPath seed-file)
         text (slurp seed-file)
-        seed (edn/read-string text)
+        seed (with-open [reader (PushbackReader. (java.io.StringReader. text))]
+               (let [value (edn/read {:eof eof} reader)]
+                 (when-not (identical? eof (edn/read {:eof eof} reader))
+                   (throw (ex-info (str "invalid Axxium identity seed " path ": contains more than one form") {:path path})))
+                 value))
         fail #(throw (ex-info (str "invalid Axxium identity seed " path ": " %) {:path path}))
-        policy? #(or (map? %) (contains? (:policies seed) %))]
+        policy? (fn [ref]
+                  (let [p (if (keyword? ref) (get (:policies seed) ref) ref)]
+                    (and (map? p)
+                         (= (set (keys p)) #{:policy/repos :policy/permissions :policy/actions :policy/forbid})
+                         (set? (:policy/repos p))
+                         (every? #(and (string? %) (pos? (count %))) (:policy/repos p))
+                         (map? (:policy/permissions p))
+                         (every? (fn [[k v]] (and (string? k) (contains? #{"none" "read" "write" "admin"} v))) (:policy/permissions p))
+                         (set? (:policy/actions p))
+                         (every? #{:read :comment :review :approve :push :merge} (:policy/actions p))
+                         (set? (:policy/forbid p))
+                         (every? #{:approve-own :merge-own :force-push} (:policy/forbid p)))))]
     (when-not (map? seed) (fail "not a map"))
     (when-not (policy? (get-in seed [:root :policy])) (fail "root policy unresolved"))
-    (when (re-find #"(?i):credential/(secret|pem|sealed|key-file)|BEGIN [A-Z ]*PRIVATE KEY|axb_|ghs_|ghp_|sk-" text)
+    (when (re-find #"(?i):credential/(secret|pem|sealed|key-file)|BEGIN [A-Z ]*PRIVATE KEY|axb_|ghs_|ghp_|github_pat_|sk-" text)
       (fail "contains secret material"))
     (reduce (fn [seen {:keys [id parent policy]}]
+              (when (contains? seen id) (fail (str "duplicate actor id " id)))
               (when-not (contains? seen parent) (fail (str id " precedes its parent " parent)))
               (when-not (policy? policy) (fail (str id " policy unresolved")))
               (conj seen id))
