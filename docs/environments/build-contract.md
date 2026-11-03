@@ -1,6 +1,6 @@
 # Environment image input contract
 
-The environment builder must produce application outputs before Docker packages them. Its Knoxx path follows `.github/workflows/build-images.yml`: invoke `pnpm -C backend exec shadow-cljs compile server`, require `backend/dist/server.js` and `backend/dist/cljs-runtime`, stage `frontend/index.html`, and require the application CSS, CLJS entry point, and bridge CSS. Typechecking and tests are not substitutes for the server build. The `:optimizations :none` server target uses `compile`, not `release`.
+The environment builder must produce application outputs before Docker packages them. Its Knoxx path follows `.github/workflows/build-images.yml`: invoke `pnpm -C backend exec shadow-cljs compile server`, require `backend/dist/server.js` and a `backend/dist/cljs-runtime` tree containing at least one regular `.js` file, stage `frontend/index.html`, and require the application CSS, CLJS entry point, and bridge CSS. Typechecking and tests are not substitutes for the server build. The `:optimizations :none` server target uses `compile`, not `release`.
 
 A failed compiler command or missing required output must terminate the builder before its first Docker invocation. The Axxium npm build path, revision check, artifact digest, deployment admission, and production qualification policy are unchanged.
 
