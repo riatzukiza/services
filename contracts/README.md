@@ -31,20 +31,25 @@ contracts/
   idempotently at startup through its policy-checked provision op: missing
   actors are created, existing ones are never changed or deleted. The file
   holds actors and policies only; credentials are provisioned at runtime in
-  the Axxium portal. Not wired yet: `digitalocean/services/axxium` is
-  deployed by a qualified fixed transaction (`scripts/axxium_minimal_release.py`
+  the Axxium portal. Seed application also requires a usable
+  `AXXIUM_GITHUB_IDENTITY_KEY_FILE` and a nonempty
+  `AXXIUM_GITHUB_IDENTITY_LEDGER_FILE`; without both, Axxium skips the seed.
+  **Direct portal link:** the portal identifies a signed-in human as
+  `:auth/actor-id` (`actor_<uuid>`, minted at first Google signup on
+  riatzukiza/axxium#21). Set both host-local values together so that
+  session acts as the seed root (see
+  `contracts/axxium/identity/root-operator.env.example`):
+  `AXXIUM_IDENTITY_ROOT_OPERATOR_ACTOR_ID=actor_<uuid>` and
+  `AXXIUM_IDENTITY_ROOT_DID=did:web:<host>:actors:err`. The seed keeps the
+  stable path id `err`; the binding is the direct link, not a second alias
+  account. Not wired into deployment yet: `digitalocean/services/axxium` is
+  applied by a qualified fixed transaction (`scripts/axxium_minimal_release.py`
   + `minimal-production-plan.json`) that preserves a host-owned compose/.env
-  by digest, and open-hax/services#92 is still reshaping that service. Wiring
-  also requires a usable `AXXIUM_GITHUB_IDENTITY_KEY_FILE` and a nonempty
-  `AXXIUM_GITHUB_IDENTITY_LEDGER_FILE`; without both, seed application is skipped.
-  The seed root `err` does not by itself bind to an authenticated account: the
-  portal derives its caller DID from the account actor ID. A verified binding or
-  the authenticated actor ID must be established before this tree can be managed.
-  Wiring needs a read-only bind of `contracts/axxium/identity` plus the variable,
-  admitted as a new overlay, and an Axxium image that contains the loader.
-  Format:
-  open-hax/axxium `docs/github-identity-resource.md#seed-files`
-  (riatzukiza/axxium#21).
+  by digest, and open-hax/services#92 is still reshaping that service.
+  Wiring needs a read-only bind of `contracts/axxium/identity` plus the
+  seed path, admitted as a new overlay, and an Axxium image that contains
+  the loader. Format: open-hax/axxium
+  `docs/github-identity-resource.md#seed-files` (riatzukiza/axxium#21).
 - **OpenPlanner** owns no contracts; it consumes Proxx and Knoxx.
 
 ## Policy notes

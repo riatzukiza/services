@@ -6,11 +6,19 @@
 ;; Ids are actor paths resolved to did:web:<axxium host>:actors:<path>.
 ;; Parents come before children. :forks names the shared fork policy.
 ;; Format: open-hax/axxium docs/github-identity-resource.md#seed-files
+;;
+;; Root portal link (direct): bind the signed-in portal account to this seed
+;; root via host-local AXXIUM_IDENTITY_ROOT_OPERATOR_ACTOR_ID=actor_<uuid>
+;; and AXXIUM_IDENTITY_ROOT_DID=did:web:<host>:actors:err
+;; (see root-operator.env.example). Path id "err" stays the stable DID path;
+;; the binding makes Err's live session that root. :force-push in
+;; :policy/forbid is policy intent for the write proxy / GitHub rules;
+;; Axxium token_for does not enforce it.
 {:policies {:forks {:policy/repos #{"riatzukiza/foresight" "riatzukiza/.agents" "riatzukiza/Truth" "riatzukiza/axxium" "riatzukiza/bitch-tracker" "riatzukiza/calliope" "riatzukiza/chat-ui" "riatzukiza/clio" "riatzukiza/epiphany" "riatzukiza/eta-mu" "riatzukiza/kanban-orchestrator" "riatzukiza/katamorph" "riatzukiza/knoxx" "riatzukiza/muse" "riatzukiza/mojomast-opencode" "riatzukiza/openplanner" "riatzukiza/osmos" "riatzukiza/proxx" "riatzukiza/receipt-river" "riatzukiza/rheos" "riatzukiza/services" "riatzukiza/session-mycology" "riatzukiza/shx" "riatzukiza/sol" "riatzukiza/uxx"}
  :policy/permissions {"contents" "write" "pull_requests" "write" "issues" "write" "checks" "read" "statuses" "read"}
  :policy/actions #{:read :comment :review :approve :push :merge}
  :policy/forbid #{:force-push :approve-own :merge-own}}}
- :root {:id "err" :name "Err" :policy {:policy/repos #{"*"}
+ :root {:id "err" :name "Err" :portal/binding :root-operator-env :policy {:policy/repos #{"*"}
             :policy/permissions {"contents" "write" "pull_requests" "write" "issues" "write" "checks" "read" "statuses" "read"}
             :policy/actions #{:read :comment :review :approve :push :merge}
             :policy/forbid #{:force-push}}}
