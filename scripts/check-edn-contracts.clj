@@ -97,7 +97,8 @@
                          (every? #{:approve-own :merge-own :force-push} (:policy/forbid p)))))]
     (when-not (map? seed) (fail "not a map"))
     (when-not (policy? (get-in seed [:root :policy])) (fail "root policy unresolved"))
-    (when (re-find #"(?i):credential/(secret|pem|sealed|key-file)|BEGIN [A-Z ]*PRIVATE KEY|axb_|ghs_|ghp_|github_pat_|sk-" text)
+    ;; Match sk- at a token boundary so ordinary text like task-runner is allowed.
+    (when (re-find #"(?i):credential/(secret|pem|sealed|key-file)|BEGIN [A-Z ]*PRIVATE KEY|axb_|ghs_|ghp_|github_pat_|\bsk-" text)
       (fail "contains secret material"))
     (reduce (fn [seen {:keys [id parent policy]}]
               (when (contains? seen id) (fail (str "duplicate actor id " id)))
