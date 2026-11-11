@@ -1,0 +1,84 @@
+name: axxium-owner-staging
+
+services:
+  axxium:
+    image: ${AXXIUM_IMAGE:?Set the admitted Axxium staging image ID}
+    user: "1000:1000"
+    restart: unless-stopped
+    stop_grace_period: 610s
+    ports:
+      - 127.0.0.1:18874:8787
+    environment:
+      NODE_ENV: production
+      AXXIUM_HOST: 0.0.0.0
+      AXXIUM_PORT: "8787"
+      AXXIUM_SERVICE: axxium-owner-staging
+      AXXIUM_ENV: staging
+      AXXIUM_PUBLIC_BASE_URL: http://127.0.0.1:18874
+      AXXIUM_ISS: http://127.0.0.1:18874
+      AXXIUM_SIGNING_KEY_FILE: /run/axxium/private/actor.pem
+      SESSION_COOKIE_NAME: axxium_owner_stage
+      SESSION_COOKIE_SECURE: "false"
+      DB_HOST: database
+      DB_NAME: axxium
+      DB_USER: axxium
+      DB_PASSWORD: ${DB_PASSWORD:?Set an isolated staging database password}
+      GOOGLE_OAUTH_CLIENT_FILE: /run/axxium/private/google-client.json
+      AXXIUM_GITHUB_IDENTITY_KEY_FILE: /run/axxium/private/identity.key
+      AXXIUM_GITHUB_IDENTITY_LEDGER_FILE: /var/lib/axxium/identity/ledger.edn
+      AXXIUM_IDENTITY_SEED_FILE: /run/axxium/foresight-tree.edn
+      AXXIUM_IDENTITY_ROOT_OPERATOR_ACTOR_ID:
+      AXXIUM_IDENTITY_ROOT_DID:
+    volumes:
+      - type: bind
+        source: ./private
+        target: /run/axxium/private
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./foresight-tree.edn
+        target: /run/axxium/foresight-tree.edn
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./identity
+        target: /var/lib/axxium/identity
+        bind:
+          create_host_path: false
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    mem_limit: 192m
+    cpus: "1.0"
+    pids_limit: 160
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+
+  database:
+    image: docker.io/library/postgres@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: axxium
+      POSTGRES_USER: axxium
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set an isolated staging database password}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "axxium", "-d", "axxium"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    mem_limit: 192m
+    cpus: "1.0"
+    pids_limit: 160
+    security_opt: [no-new-privileges:true]
+
+volumes:
+  postgres-data:
