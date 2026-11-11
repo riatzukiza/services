@@ -63,6 +63,9 @@ Read back that the running app loaded both owner settings and that the seed
 startup result reports zero refusals. Record the match and outcome without
 printing the actor ID, rendered Compose environment, or credentials.
 
+Before the authorization checks, record the byte count and SHA-256 of the
+slot's `identity/ledger.edn`.
+
 From the matched Google session, list the tree in the portal and verify the
 root and all seeded descendants. In a separate authenticated staging session,
 verify the unrelated actor sees none of the seeded tree and receives HTTP 403
@@ -71,9 +74,8 @@ The matched Google owner should still see that child active. Suspend and resume
 the same child as the owner, checking the portal state after each operation and
 confirming the final tree matches the initial tree.
 
-Use the slot's `identity/ledger.edn` to verify persistence. Take its byte count
-and SHA-256 before the operations. Afterward verify the original byte prefix
-hash is unchanged and inspect the appended records in place. The unrelated
+After the authorization checks, verify the original ledger byte prefix hash
+is unchanged and inspect the appended records in place. The unrelated
 attempt records a denied policy decision. The owner operations each record an
 allowed decision and a resource update for the same child. Record only the
 outcomes and hashes in the receipt.
