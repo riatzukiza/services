@@ -190,12 +190,12 @@ shared Docker network.
 A service may declare fewer phases. It may not declare production without a
 staging record to compare against.
 
-The website now has an isolated staging phase. Its authored production gate
-also remains closed until unsupported mutation qualification is resolved
-explicitly. See `docs/website-staging-deployment.md` for commands and evidence.
-Stack dispatches leave the website unchanged. Its explicit
-website scope stages the candidate; stack website opt-in is rejected in
-authorization before any host mutation while qualification is unsupported.
+The website now has an isolated staging phase. Its production gate requires an
+exact-candidate owner decision and matching deployment inputs and staging proof;
+missing or mismatched evidence fails closed. See `docs/website-staging-deployment.md`
+for commands and evidence. Stack dispatches leave the website unchanged. Its
+explicit website scope stages the candidate; stack website opt-in is rejected in
+authorization before any host mutation.
 
 ## 4. Publication targets — serving content another service writes
 
