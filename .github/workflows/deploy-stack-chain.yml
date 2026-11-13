@@ -23,7 +23,7 @@ on:
   workflow_call:
     inputs:
       scope:
-        description: stack or website; website does not mutate application services
+        description: Production scope selected by the locked Deploy Stack caller
         required: false
         default: stack
         type: string
@@ -36,7 +36,7 @@ on:
         required: true
         type: string
       axxium_ref:
-        description: Fixed immutable staged Axxium source; isolated axxium scope only
+        description: Fixed immutable staged Axxium source for either isolated Axxium scope
         required: false
         default: ''
         type: string
@@ -86,6 +86,14 @@ permissions:
   packages: write
 
 jobs:
+  deploy-knoxx-policy:
+    if: inputs.scope == 'knoxx-policy'
+    uses: ./.github/workflows/deploy-knoxx-public-policy.yml
+    with:
+      caller_holds_production_host_lock: true
+    secrets:
+      DIGITALOCEAN_SSH_PRIVATE_KEY: ${{ secrets.DIGITALOCEAN_SSH_PRIVATE_KEY }}
+
   deploy-colab-production:
     if: inputs.scope == 'colab'
     uses: ./.github/workflows/deploy-colab-qualified.yml
@@ -112,6 +120,32 @@ jobs:
       caller_holds_production_host_lock: true
       recover_interrupted: ${{ inputs.axxium_recover_interrupted }}
     secrets: inherit
+
+  deploy-axxium-work-pilot:
+    if: inputs.scope == 'axxium-work-pilot'
+    uses: ./.github/workflows/deploy-axxium-work-dark.yml
+    with:
+      source_sha: ${{ inputs.axxium_ref }}
+      caller_holds_production_host_lock: true
+    secrets:
+      DIGITALOCEAN_SSH_PRIVATE_KEY: ${{ secrets.DIGITALOCEAN_SSH_PRIVATE_KEY }}
+
+  operate-axxium-work-pilot:
+    if: >-
+      inputs.scope == 'axxium-work-pilot-activate' || inputs.scope == 'axxium-work-pilot-repair-ingress' ||
+      inputs.scope == 'axxium-work-pilot-teardown' || inputs.scope == 'axxium-work-pilot-reopen' ||
+      inputs.scope == 'axxium-work-pilot-close'
+    uses: ./.github/workflows/deploy-axxium-work-activation.yml
+    with:
+      action: >-
+        ${{ inputs.scope == 'axxium-work-pilot-activate' && 'activate' ||
+        inputs.scope == 'axxium-work-pilot-repair-ingress' && 'repair-ingress' ||
+        inputs.scope == 'axxium-work-pilot-reopen' && 'reopen' ||
+        inputs.scope == 'axxium-work-pilot-close' && 'close' || 'teardown' }}
+      source_sha: ${{ inputs.axxium_ref }}
+      caller_holds_production_host_lock: true
+    secrets:
+      DIGITALOCEAN_SSH_PRIVATE_KEY: ${{ secrets.DIGITALOCEAN_SSH_PRIVATE_KEY }}
 
   # Build jobs may run while the host is prepared, but no production service
   # deploy starts until this exact checkout has installed and verified the

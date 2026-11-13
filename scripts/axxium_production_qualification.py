@@ -2,20 +2,24 @@
 """Read native custody and canonical qualification before any host capability.
 
 The archive is inspected as data; nothing is extracted, loaded or executed.
-Only an immutable Services-main qualification file can reach the existing
-production_admission policy. A staging build or pilot report supplies no waiver.
+Only an immutable Services-main qualification file can supply integration and
+e2e receipts. Axxium production admission does not require mutation batches:
+open-hax/axxium#58 retired that campaign, and it must not block this path.
+A staging build or pilot report does not replace integration, e2e, or custody.
 """
 from __future__ import annotations
 
 import argparse
 import base64
 from datetime import datetime, timezone
+import gzip
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
 import re
 import tarfile
 import zipfile
+import zlib
 
 from environment_policy import production_admission, timestamp
 from github_environment_admission import api
@@ -30,13 +34,26 @@ DIGEST = re.compile(r"[0-9a-f]{64}")
 MAX_ZIP = 256 * 1024 * 1024
 MAX_TAR = 512 * 1024 * 1024
 MAX_JSON = 1024 * 1024
-
-# This exception is deliberately bound to one candidate and one exact plan.
-# A plan or shared-policy change requires a new review; it cannot silently
-# expand the waiver or invalidate the interpretation of the receipt check.
-WAIVER_SOURCE = "58234df96ca86507e6cdd87f65aaa9ab35621415"
-WAIVER_PLAN_SHA256 = "6025ff0257a28711cc7847ca6935b97ffc3b11e4ccef76c3eb27a89f16bcafe1"
-WAIVER_POLICY_SHA256 = "b32748ae2d103cacb9ccdecf17119659aac9c0797461e32d5ce96b2e1ce58b33"
+OCI_INDEX = "application/vnd.oci.image.index.v1+json"
+OCI_MANIFEST = "application/vnd.oci.image.manifest.v1+json"
+OCI_CONFIG = "application/vnd.oci.image.config.v1+json"
+OCI_LAYER = "application/vnd.oci.image.layer.v1.tar"
+PROVENANCE = "https://slsa.dev/provenance/v1"
+# Classic Docker save emitted these unreferenced legacy layer JSON records in
+# the historical Axxium artifact. Each name is the sha256 of its bytes. No
+# other unreferenced archive member is admissible.
+LEGACY_LAYER_METADATA = frozenset("blobs/sha256/" + digest for digest in (
+    "05ebb58fc71038f0063523ef6f23ef3b51d4f07f0149f48b092676ce3da0d7fd",
+    "30a7ed937ab3c0c0c06cf8968ca222a545e4333273eee8915b2af8ae721d6a0e",
+    "6b20faf0102614b1290e22d7dbe66115ea1cb6d3edcdde901ad3f42c7b68089c",
+    "8bd87858499b8778b26ed35a9cc052fea5798d6b61664c0059a53fd451e07f89",
+    "ac6cab210f037bd9e93403f75c93cf24e4cb034fd351a830308a69573c2177a0",
+    "bddbf4942d1ab783b05a2e3236eae2421716bc495afe94ced7427180b1756eb7",
+    "c97b03879397d8cde4b4cb3eaee9686dbccda3affa7a55448bcf9d42c3cabffe",
+    "ca33e2ee30da2a366fea20ce00bf7945c2a3634c6f2b46dec3aa594d9018201b",
+    "e39ae583f7c887dd4347dcfb7f35080daa4af10379d1d86466025645b927256b",
+    "e7e153ad5535ed1231d4f5816471d555e38fce149ca7b2eb47aac3665f0c93d3",
+))
 
 
 class Refusal(ValueError):
@@ -104,7 +121,8 @@ def validate_plan(plan):
     require(plan.get("stage_workflow_path") == STAGE_WORKFLOW, "unexpected staging caller")
 
 
-def verify_native_stage(plan, now):
+def verify_native_stage_run(plan, now):
+    """Bind the historical successful staging run to its merged source and controller."""
     main_ancestor(REPOSITORY, plan["source_sha"])
     main_ancestor(SERVICES, plan["stage_controller_sha"])
     pr = api(f"repos/{REPOSITORY}/pulls/{plan['source_pr']}")
@@ -129,6 +147,13 @@ def verify_native_stage(plan, now):
             "native staging controller mismatch")
     require(timestamp(pr["merged_at"]) <= timestamp(run["created_at"]) <= timestamp(run["updated_at"]) <= now,
             "native staging chronology mismatch")
+    return run
+
+
+def verify_native_stage(plan, now):
+    run = verify_native_stage_run(plan, now)
+    repository = run["repository"]
+    head = run["head_sha"]
     artifact = api(f"repos/{REPOSITORY}/actions/artifacts/{plan['artifact_id']}")
     custody = artifact.get("workflow_run", {})
     require(type(artifact.get("id")) is int and artifact.get("id") == plan["artifact_id"] and artifact.get("name") == "service-environment-images"
@@ -145,12 +170,81 @@ def verify_native_stage(plan, now):
     return artifact
 
 
+def oci_blob(descriptor, sizes, media_type, *extra_fields):
+    """Validate an exact descriptor and resolve its digest-bound archive path."""
+    require(isinstance(descriptor, dict) and set(descriptor) == {"digest", "size", "mediaType", *extra_fields}
+            and descriptor["mediaType"] == media_type
+            and isinstance(descriptor["digest"], str) and re.fullmatch(r"sha256:[0-9a-f]{64}", descriptor["digest"]),
+            "unexpected OCI descriptor")
+    path = "blobs/sha256/" + descriptor["digest"][7:]
+    require(type(descriptor["size"]) is int and 0 < descriptor["size"] == sizes.get(path), "OCI descriptor size mismatch")
+    return path
+
+
+def nested_image(index, sizes, metadata, source_sha):
+    """Select the single runnable image in the staged BuildKit save format."""
+    require(isinstance(index, dict) and set(index) == {"schemaVersion", "mediaType", "manifests"}
+            and index["schemaVersion"] == 2 and index["mediaType"] == OCI_INDEX
+            and isinstance(index["manifests"], list) and len(index["manifests"]) == 2, "unexpected nested OCI index")
+    runnable, attestation = index["manifests"]
+    image_path = oci_blob(runnable, sizes, OCI_MANIFEST, "platform")
+    require(runnable["platform"] == {"os": "linux", "architecture": "amd64"}, "unexpected OCI image platform")
+    attestation_path = oci_blob(attestation, sizes, OCI_MANIFEST, "platform", "annotations")
+    require(attestation["platform"] == {"os": "unknown", "architecture": "unknown"}
+            and attestation["annotations"] == {"vnd.docker.reference.type": "attestation-manifest",
+                                               "vnd.docker.reference.digest": runnable["digest"]},
+            "OCI attestation does not reference the runnable manifest")
+    manifest = strict_json(metadata[attestation_path])
+    require(isinstance(manifest, dict) and set(manifest) == {"schemaVersion", "mediaType", "config", "layers"}
+            and manifest["schemaVersion"] == 2 and manifest["mediaType"] == OCI_MANIFEST
+            and isinstance(manifest["layers"], list) and len(manifest["layers"]) == 1,
+            "unexpected OCI attestation manifest")
+    config_path = oci_blob(manifest["config"], sizes, OCI_CONFIG)
+    layer = manifest["layers"][0]
+    statement_path = oci_blob(layer, sizes, "application/vnd.in-toto+json", "annotations")
+    require(layer["annotations"] == {"in-toto.io/predicate-type": PROVENANCE}
+            and strict_json(metadata[config_path]) == {"os": "unknown", "architecture": "unknown", "config": {},
+                                                        "rootfs": {"type": "layers", "diff_ids": [layer["digest"]]}},
+            "unexpected OCI provenance configuration")
+    statement = strict_json(metadata[statement_path])
+    require(isinstance(statement, dict) and statement.get("_type") == "https://in-toto.io/Statement/v0.1"
+            and statement.get("predicateType") == PROVENANCE and isinstance(statement.get("predicate"), dict)
+            and statement.get("subject") == [{"name": f"pkg:docker/promethean-axxium@{source_sha}?platform=linux%2Famd64",
+                                              "digest": {"sha256": runnable["digest"][7:]}}],
+            "OCI provenance does not bind the runnable source image")
+    return image_path, {attestation_path, config_path, statement_path}
+
+
+def gzip_diff_ids(package, paths):
+    """Hash uncompressed layer bytes in order, bounding total expansion."""
+    remaining = MAX_TAR
+    digests = {}
+    layer_paths = set(paths)
+    try:
+        with package.open("images.tar") as stream, tarfile.open(fileobj=stream, mode="r|") as image:
+            for member in image:
+                if member.name in layer_paths:
+                    with gzip.GzipFile(fileobj=image.extractfile(member)) as layer:
+                        digest, size = stream_digest(layer, remaining)
+                    require(size > 0, "empty OCI gzip layer")
+                    remaining -= size
+                    digests[member.name] = "sha256:" + digest
+    except (OSError, EOFError, zlib.error) as error:
+        raise Refusal("invalid OCI gzip layer") from error
+    return [digests[path] for path in paths]
+
+
 def verify_archive(plan, archive):
     """Verify one OCI Docker-save artifact without executing any member."""
     require(archive.is_file() and 0 < archive.stat().st_size <= MAX_ZIP, "archive unavailable or too large")
     with archive.open("rb") as stream:
         actual, _ = stream_digest(stream, MAX_ZIP)
-    require(actual == plan["artifact_sha256"], "archive differs from native digest")
+        require(actual == plan["artifact_sha256"], "archive differs from native digest")
+        return verify_archive_members(plan, stream)
+
+
+def verify_archive_members(plan, archive):
+    """Bound and hash archive members before passing their metadata to the OCI verifier."""
     metadata = {}
     sizes = {}
     with zipfile.ZipFile(archive) as package:
@@ -194,86 +288,102 @@ def verify_archive(plan, archive):
                     require(size == member.size, "truncated image member")
                 if blob:
                     require(digest == blob.group(1), "OCI blob digest mismatch")
+        return verify_image(plan, package, metadata, sizes)
+
+
+def verify_image(plan, package, metadata, sizes):
+    """Bind the plan to one runnable image and check the complete archive file set."""
     layout = strict_json(metadata["oci-layout"])
     index = strict_json(metadata["index.json"])
     require(layout == {"imageLayoutVersion": "1.0.0"} and index.get("schemaVersion") == 2
             and len(index.get("manifests", [])) == 1, "unexpected OCI layout")
     selected = index["manifests"][0]
+    nested = selected.get("mediaType") == OCI_INDEX
     image_digest = plan["image_id"].split(":", 1)[1]
-    image_path = "blobs/sha256/" + image_digest
-    require(selected.get("digest") == plan["image_id"] and selected.get("size") == sizes.get(image_path)
-            and selected.get("mediaType") == "application/vnd.oci.image.manifest.v1+json"
-            and selected.get("annotations", {}).get("io.containerd.image.name")
-                == "docker.io/library/promethean-axxium:" + plan["source_sha"]
-            and selected.get("annotations", {}).get("org.opencontainers.image.ref.name") == plan["source_sha"],
+    tagged_path = "blobs/sha256/" + image_digest
+    reference = {"io.containerd.image.name": "docker.io/library/promethean-axxium:" + plan["source_sha"],
+                 "org.opencontainers.image.ref.name": plan["source_sha"]}
+    annotations = selected.get("annotations", {})
+    require(selected.get("digest") == plan["image_id"] and selected.get("size") == sizes.get(tagged_path)
+            and selected.get("mediaType") in (OCI_MANIFEST, OCI_INDEX)
+            and isinstance(annotations, dict) and all(annotations.get(key) == value for key, value in reference.items()),
             "OCI image/source reference mismatch")
+    referenced = {tagged_path, "index.json", "manifest.json", "oci-layout"}
+    image_path = tagged_path
+    if nested:
+        require(set(index) == {"schemaVersion", "mediaType", "manifests"}
+                and index["mediaType"] == OCI_INDEX and annotations == reference, "unexpected tagged OCI index")
+        oci_blob(selected, sizes, OCI_INDEX, "annotations")
+        image_path, attestations = nested_image(strict_json(metadata[tagged_path]), sizes, metadata, plan["source_sha"])
+        referenced.update(attestations)
+    if "image_manifest_digest" in plan:
+        require(image_path == "blobs/sha256/" + plan["image_manifest_digest"].removeprefix("sha256:"),
+                "OCI manifest differs from reviewed runtime")
     manifest = strict_json(metadata[image_path])
     config = manifest.get("config", {})
     require(manifest.get("schemaVersion") == 2 and isinstance(config.get("digest"), str)
             and re.fullmatch(r"sha256:[0-9a-f]{64}", config["digest"]), "OCI configuration unavailable")
     config_path = "blobs/sha256/" + config["digest"].split(":", 1)[1]
     require(config.get("size") == sizes.get(config_path), "OCI configuration size mismatch")
+    if "image_config_digest" in plan:
+        require(config["digest"] == plan["image_config_digest"], "OCI configuration differs from reviewed runtime")
+    if nested:
+        require(set(manifest) == {"schemaVersion", "mediaType", "config", "layers"}
+                and manifest["mediaType"] == OCI_MANIFEST, "unexpected OCI image manifest")
+        oci_blob(config, sizes, OCI_CONFIG)
     configuration = strict_json(metadata[config_path])
     layers = manifest.get("layers")
     require(isinstance(layers, list) and layers, "OCI layers unavailable")
     paths = []
     for layer in layers:
+        if nested:
+            paths.append(oci_blob(layer, sizes, OCI_LAYER + "+gzip"))
+            continue
         digest = layer.get("digest")
         require(isinstance(digest, str) and re.fullmatch(r"sha256:[0-9a-f]{64}", digest)
-                and layer.get("mediaType") == "application/vnd.oci.image.layer.v1.tar",
+                and layer.get("mediaType") == OCI_LAYER,
                 "unexpected OCI layer format")
         path = "blobs/sha256/" + digest.split(":", 1)[1]
         require(layer.get("size") == sizes.get(path), "OCI layer size mismatch")
         paths.append(path)
+    if nested:
+        require(len(set(paths)) == len(paths), "repeated OCI runnable layer")
     docker = strict_json(metadata["manifest.json"])
-    require(isinstance(docker, list) and len(docker) == 1
+    require(isinstance(docker, list) and len(docker) == 1 and isinstance(docker[0], dict)
+            and (not nested or set(docker[0]) == {"Config", "Layers", "RepoTags"})
             and docker[0].get("Config") == config_path and docker[0].get("Layers") == paths
             and docker[0].get("RepoTags") == ["promethean-axxium:" + plan["source_sha"]],
             "Docker manifest differs from native candidate")
-    require(strict_json(metadata["repositories"]) == {
-        "promethean-axxium": {plan["source_sha"]: layers[-1]["digest"].split(":", 1)[1]}},
-        "legacy tag differs from OCI candidate")
+    if not nested or "repositories" in sizes:
+        require(strict_json(metadata["repositories"]) == {
+            "promethean-axxium": {plan["source_sha"]: layers[-1]["digest"].split(":", 1)[1]}},
+            "legacy tag differs from OCI candidate")
+        referenced.add("repositories")
+    referenced.update({image_path, config_path, *paths})
+    require(set(sizes) - referenced <= LEGACY_LAYER_METADATA, "unreferenced OCI archive files")
+    diff_ids = gzip_diff_ids(package, paths) if nested else [item["digest"] for item in layers]
     require(configuration.get("os") == "linux" and configuration.get("architecture") == "amd64"
-            and configuration.get("rootfs") == {"type": "layers", "diff_ids": [item["digest"] for item in layers]},
+            and configuration.get("rootfs") == {"type": "layers", "diff_ids": diff_ids},
             "OCI root filesystem binding mismatch")
     return plan["image_id"]
 
 
-def verify_mutation_exception(plan, plan_bytes, proof, verdict):
-    """Admit only the reviewed mutation waiver; never assert mutation success.
+def require_axxium_receipts(source_sha, integration, e2e):
+    """Require shared integration and e2e receipts. Mutation batches are not an Axxium gate.
 
-    The actual missing-batches verdict confirms that the existing shared policy
-    accepted integration and e2e. Only an explicitly empty mutation-batch list
-    is in scope: submitted partial or invalid results must not be discarded.
-    The exact shared policy bytes are pinned to prevent later policy changes
-    from being silently skipped by this candidate-only exception.
+    Knoxx and Colab still pass their mutation batches to production_admission.
+    That shared function is unchanged and still refuses without four completed
+    batches. Axxium calls it with an empty batch list so the integration and
+    e2e rules run first, then accepts only that mutation-batch refusal. Any
+    other refusal is an integration or e2e failure. Caller-supplied
+    mutation_batches and mutation_campaign_passed are not evidence: they cannot
+    block this gate or satisfy it.
     """
-    policy_path = Path(__file__).with_name("environment_policy.py")
-    require(hashlib.sha256(policy_path.read_bytes()).hexdigest() == WAIVER_POLICY_SHA256,
-            "shared policy changed; mutation exception needs review")
-    plan_hash = hashlib.sha256(plan_bytes).hexdigest()
-    require(plan.get("source_sha") == WAIVER_SOURCE and plan_hash == WAIVER_PLAN_SHA256,
-            "mutation exception does not apply to this candidate")
-    exception = proof.get("mutation_exception")
-    require(isinstance(exception, dict)
-            and exception.get("schema") == "axxium-mutation-exception/v1"
-            and exception.get("status") == "approved"
-            and exception.get("scope") == "mutation-only"
-            and exception.get("source_sha") == WAIVER_SOURCE
-            and exception.get("plan_sha256") == plan_hash
-            and exception.get("image_id") == plan.get("image_id")
-            and exception.get("stage_run_id") == plan.get("stage_run_id")
-            and exception.get("artifact_sha256") == plan.get("artifact_sha256")
-            and exception.get("mutation_campaign_passed") is False
-            and isinstance(exception.get("owner_decision_reference"), str)
-            and bool(exception["owner_decision_reference"].strip()),
-            "reviewed candidate-specific mutation exception unavailable")
+    verdict = production_admission(source_sha, integration, e2e, [])
+    if verdict.get("admitted") is True:
+        return
     require(verdict == {"admitted": False, "reason": "four completed mutation batches are required"},
             verdict.get("reason", "canonical production qualification refused"))
-    require(isinstance(proof.get("mutation_batches"), list) and proof["mutation_batches"] == [],
-            "mutation exception requires an explicitly empty batch list")
-    return {"qualification": "owner-decision", "mutationCampaignPassed": False,
-            "waivedMutationVerdict": verdict}
 
 
 def admit(plan_bytes, controller_sha, archive, *, now=None):
@@ -294,16 +404,12 @@ def admit(plan_bytes, controller_sha, archive, *, now=None):
         raise Refusal("immutable source qualification unavailable") from error
     require(isinstance(proof, dict) and proof.get("repository") == REPOSITORY
             and proof.get("source_sha") == plan["source_sha"], "qualification source binding mismatch")
-    verdict = production_admission(plan["source_sha"], proof.get("integration"),
-                                   proof.get("e2e"), proof.get("mutation_batches"))
-    exception_verdict = {}
-    if verdict.get("admitted") is not True:
-        exception_verdict = verify_mutation_exception(plan, plan_bytes, proof, verdict)
-    # Re-read mutable native custody after archive inspection and policy admission.
+    require_axxium_receipts(plan["source_sha"], proof.get("integration"), proof.get("e2e"))
+    # Re-read mutable native custody after archive inspection and receipt admission.
     main_ancestor(SERVICES, controller_sha)
     verify_native_stage(plan, fixed_time or datetime.now(timezone.utc))
     return {"admitted": True, "source_sha": plan["source_sha"], "image_id": plan["image_id"],
-            "plan_sha256": hashlib.sha256(plan_bytes).hexdigest(), **exception_verdict}
+            "plan_sha256": hashlib.sha256(plan_bytes).hexdigest()}
 
 
 def main():
