@@ -1,0 +1,1 @@
+(:source-commit "7309851d126d1e74d0123ffb4f1b7fa739a90a53" :source-ref "refs/heads/integration/axxium-signing-compatibility" :backup-branch "codex/backup/stealth/20261117T131806Z-services12-publication" :snapshot-tag "Π/20261117T131806Z-stealth-services12-publication" :worktree-state :clean :purpose :temporary-checkout-retirement)
