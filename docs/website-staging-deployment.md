@@ -6,7 +6,7 @@ single `digitalocean-production-host` lock covers both phases. Website scope
 does not bootstrap the host or build/deploy Proxx, Knoxx, devtools, or the main
 Caddy project. The default `stack` scope deploys Proxx, Knoxx and Caddy while
 leaving the website unchanged. Both manual and reusable `include_website`
-defaults are false; labelled merge deploys always pass false. A manual
+defaults are false; production deployment starts by manual dispatch. A manual
 `scope: stack` with `include_website: true` is rejected by authorization before
 any host mutation, preventing a late website failure after application cutover.
 Use the explicit website scope to stage a candidate regardless of that flag.
@@ -18,12 +18,12 @@ staging, issued TLS, or successful production qualification. Those facts require
 successful workflow jobs and their receipts.
 
 There is no canonical website campaign evaluating four batches of 250 distinct
-source mutations, or a verifier for that evidence. `production-qualification`
-therefore fails explicitly after stage proof. Unit tests, builds, and a healthy
-stage do not satisfy that policy. Production remains unchanged until legitimate
-qualification exists or the owner makes an explicit scoped policy decision on
-the concrete candidate and the reviewed gate is updated. There is no run-ID
-input or bypass switch.
+source mutations, or a verifier for that evidence. Unit tests, builds, and a
+healthy stage do not satisfy that policy. `production-qualification` can instead
+accept an explicit owner decision for the exact candidate when the reviewed
+deployment inputs, current Services and nginx revisions, and fresh staging proof
+match. Missing or mismatched evidence fails closed. There is no run-ID input or
+bypass switch.
 
 ## Isolation
 
@@ -78,8 +78,8 @@ gh run download --repo open-hax/services <run-id> \
   -n website-stage-proof-<run-attempt> -D website-stage-proof
 ```
 
-The final run currently fails at unsupported production qualification even
-when staging succeeds. Inspect the staging/proof jobs and their artifact. The
+A successful stage alone does not qualify production. Inspect the staging/proof
+jobs and their artifact and the exact-candidate owner decision. The
 receipt binds website source SHA, image digest, Services SHA, observed nginx
 hash, project, phase, hostname, and health. Any mismatch rejects promotion.
 GitHub's deployment SHA names Services; it does not identify website source.

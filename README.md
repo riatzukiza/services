@@ -43,8 +43,8 @@ production handoff in [the website runbook](docs/website-staging-deployment.md).
 Stack dispatches leave the website unchanged. Stack website opt-in is rejected
 before host mutation; website staging uses its explicit scope.
 Its receipt binds application source, image digest and serving configuration.
-Production stops at an explicit unsupported website mutation-qualification
-gate; a healthy stage does not satisfy that policy.
+Production qualification requires a matching exact-candidate owner decision and
+fresh staging evidence; a healthy stage alone does not satisfy that policy.
 
 The former Promethean VPS implementation is retired. Its non-secret evidence is
 preserved in [`docs/history/promethean-vps.md`](docs/history/promethean-vps.md)

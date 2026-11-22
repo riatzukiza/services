@@ -151,9 +151,8 @@ updates remain prepared code, and the older `662a1f8f...` call is still present;
 this documentation does not activate the new attestation controller.
 
 Use one trusted-main `Deploy Stack` run with `scope=stack`, `knoxx_ref=S`
-and `include_website=false`. Inspect any already-created authorized merge run
-before dispatching another. Retain the existing Proxx source
-`88471efd7f8cd27f64fc733a1c31369f00a6d432` and OpenPlanner SDK/devtools source
+and `include_website=false`. Retain the default Proxx source
+`3ed25eec53a5bed6dc224f108323ea5d20420a22` and OpenPlanner SDK/devtools source
 `07085d6557b75834ce6f50e6c54b8ca47e1c7c08`; OpenPlanner HTTP is not deployed.
 The production-host lock covers the full chain. Host provisioning and Proxx
 build/deploy can run while Knoxx qualification is pending; Knoxx image builds
